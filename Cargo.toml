@@ -1,0 +1,22 @@
+[package]
+name = "pyxlsx.rs"
+version = "0.1.0"
+authors = ["Grissiom <GW00118033@tech.gwm.com>"]
+
+[lib]
+name = "pyxlsx_rs"
+crate-type = ["cdylib"]
+
+[dependencies.calamine]
+version = "^0.12"
+
+[dependencies.pyo3]
+version = "0.2"
+features = ["extension-module", "python3"]
+
+[build-dependencies.regex]
+version = "0.2"
+
+[build-dependencies.version_check]
+version = "0.1"
+
