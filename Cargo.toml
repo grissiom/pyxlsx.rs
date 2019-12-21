@@ -1,5 +1,5 @@
 [package]
-name = "pyxlsx.rs"
+name = "pyxlsx_rs"
 version = "0.1.0"
 authors = ["Grissiom <GW00118033@tech.gwm.com>"]
 
@@ -8,7 +8,7 @@ name = "pyxlsx_rs"
 crate-type = ["cdylib"]
 
 [dependencies.calamine]
-version = "^0.12"
+version = "^0.16"
 
 [dependencies.pyo3]
 version = "0.2"
