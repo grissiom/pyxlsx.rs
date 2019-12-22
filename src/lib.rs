@@ -45,28 +45,31 @@ impl Workbook {
     }
 }
 
+impl Worksheet {
+    fn _get_size(&self) -> (u32, u32) {
+        self.range.end().map_or_else(
+            || (0, 0),
+            |v| (v.0 + 1, v.1 + 1)
+        )
+    }
+}
+
 #[pymethods]
 impl Worksheet {
-    fn get_size(&self) -> PyResult<(usize, usize)> {
-        Ok(self.range.get_size())
+    fn get_size(&self) -> PyResult<(u32, u32)> {
+        Ok(self._get_size())
     }
 
-    fn width(&self) -> PyResult<usize> {
-        Ok(self.range.width())
+    fn width(&self) -> PyResult<u32> {
+        Ok(self._get_size().1)
     }
 
-    fn height(&self) -> PyResult<usize> {
-        Ok(self.range.height())
+    fn height(&self) -> PyResult<u32> {
+        Ok(self._get_size().0)
     }
 
-    fn get_value(&self, row: usize, col: usize, py: Python) -> PyResult<pyo3::PyObject> {
-        if row >= self.range.height() {
-            return Err(PyErr::new::<exceptions::IndexError, _>("width out of bound"));
-        }
-        if col >= self.range.width() {
-            return Err(PyErr::new::<exceptions::IndexError, _>("height out of bound"));
-        }
-        match self.range.get_value((row as u32, col as u32)) {
+    fn get_value(&self, row: u32, col: u32, py: Python) -> PyResult<pyo3::PyObject> {
+        match self.range.get_value((row, col)) {
             None => { Ok(().to_object(py)) }
             Some(calamine::DataType::Int(i)) => { Ok(i.to_object(py)) }
             Some(calamine::DataType::Float(i)) => { Ok(i.to_object(py)) }
