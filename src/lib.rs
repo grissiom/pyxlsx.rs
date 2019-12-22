@@ -1,7 +1,8 @@
-#![feature(proc_macro, specialization, const_fn)]
+#![feature(specialization, const_fn)]
 extern crate pyo3;
 
 use pyo3::prelude::*;
+use pyo3::exceptions;
 
 extern crate calamine;
 
@@ -9,31 +10,28 @@ use calamine::{Sheets, Range, DataType, Reader};
 
 fn to_py_err(err: calamine::Error) -> pyo3::PyErr
 {
-    PyErr::new::<exc::ValueError, _>(format!("{}", err).to_string())
+    PyErr::new::<exceptions::ValueError, _>(format!("{}", err).to_string())
 }
 
-#[py::class]
+#[pyclass]
 struct Workbook {
     sheets: Sheets,
-    token: PyToken,
 }
 
-#[py::class]
+#[pyclass]
 struct Worksheet {
     range: Range<DataType>,
-    token: PyToken,
 }
 
-#[py::methods]
+#[pymethods]
 impl Workbook {
     #[new]
-    fn __new__(obj: &PyRawObject, path: String) -> PyResult<()> {
-        obj.init(|token| {
+    fn __new__(obj: &PyRawObject, path: String) {
+        obj.init({
             Workbook {
                 sheets: calamine::open_workbook_auto(path).expect("Cannot open file"),
-                token: token,
             }
-        })
+        });
     }
 
     fn sheet_names(&mut self) -> PyResult<Vec<String>> {
@@ -43,16 +41,11 @@ impl Workbook {
     fn get_sheet(&mut self, name: String, py: Python) -> PyResult<Py<Worksheet>> {
         let range = self.sheets.worksheet_range(name.as_str()).unwrap_or_else(||
             Err(calamine::Error::Msg("sheet not found"))).map_err(to_py_err)?;
-        py.init(|token| {
-            Worksheet {
-                range: range,
-                token: token,
-            }
-        })
+        Py::new(py, Worksheet { range, })
     }
 }
 
-#[py::methods]
+#[pymethods]
 impl Worksheet {
     fn get_size(&self) -> PyResult<(usize, usize)> {
         Ok(self.range.get_size())
@@ -68,43 +61,43 @@ impl Worksheet {
 
     fn get_value(&self, row: usize, col: usize, py: Python) -> PyResult<pyo3::PyObject> {
         if row >= self.range.height() {
-            return Err(PyErr::new::<exc::IndexError, _>("width out of bound"));
+            return Err(PyErr::new::<exceptions::IndexError, _>("width out of bound"));
         }
         if col >= self.range.width() {
-            return Err(PyErr::new::<exc::IndexError, _>("height out of bound"));
+            return Err(PyErr::new::<exceptions::IndexError, _>("height out of bound"));
         }
         match self.range.get_value((row as u32, col as u32)) {
-            None => { Ok(().into_object(py)) }
-            Some(calamine::DataType::Int(i)) => { Ok(i.into_object(py)) }
-            Some(calamine::DataType::Float(i)) => { Ok(i.into_object(py)) }
-            Some(calamine::DataType::String(ref i)) => { Ok(i.clone().into_object(py)) }
-            Some(calamine::DataType::Bool(i)) => { Ok(i.into_object(py)) }
-            Some(calamine::DataType::Empty) => { Ok(().into_object(py)) }
+            None => { Ok(().to_object(py)) }
+            Some(calamine::DataType::Int(i)) => { Ok(i.to_object(py)) }
+            Some(calamine::DataType::Float(i)) => { Ok(i.to_object(py)) }
+            Some(calamine::DataType::String(ref i)) => { Ok(i.clone().to_object(py)) }
+            Some(calamine::DataType::Bool(i)) => { Ok(i.to_object(py)) }
+            Some(calamine::DataType::Empty) => { Ok(().to_object(py)) }
             Some(calamine::DataType::Error(ref e)) => {
                 match e {
                     &calamine::CellErrorType::Div0 => {
-                        Err(PyErr::new::<exc::ValueError, _>("Division by 0 error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Division by 0 error"))
                     }
                     &calamine::CellErrorType::NA => {
-                        Err(PyErr::new::<exc::ValueError, _>("Unavailable value error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Unavailable value error"))
                     }
                     &calamine::CellErrorType::Name => {
-                        Err(PyErr::new::<exc::ValueError, _>("Invalid name error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Invalid name error"))
                     }
                     &calamine::CellErrorType::Null => {
-                        Err(PyErr::new::<exc::ValueError, _>("Null value error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Null value error"))
                     }
                     &calamine::CellErrorType::Num => {
-                        Err(PyErr::new::<exc::ValueError, _>("Number error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Number error"))
                     }
                     &calamine::CellErrorType::Ref => {
-                        Err(PyErr::new::<exc::ValueError, _>("Invalid cell reference error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Invalid cell reference error"))
                     }
                     &calamine::CellErrorType::Value => {
-                        Err(PyErr::new::<exc::ValueError, _>("Value error"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Value error"))
                     }
                     &calamine::CellErrorType::GettingData => {
-                        Err(PyErr::new::<exc::ValueError, _>("Getting data"))
+                        Err(PyErr::new::<exceptions::ValueError, _>("Getting data"))
                     }
                 }
             }
@@ -115,11 +108,11 @@ impl Worksheet {
 // add bindings to the generated python module
 // N.B: names: "librust2py" must be the name of the `.so` or `.pyd` file
 /// This module is implemented in Rust.
-#[py::modinit(pyxlsx_rs)]
-fn init_mod(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<Workbook>()?;
-    m.add_class::<Worksheet>()?;
+#[pymodule]
+fn pyxlsx_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+  m.add_class::<Workbook>()?;
+  m.add_class::<Worksheet>()?;
 
-    Ok(())
+  Ok(())
 }
 
