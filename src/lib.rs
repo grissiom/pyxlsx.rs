@@ -48,7 +48,7 @@ impl Workbook {
     fn get_sheet(&mut self, name: String, py: Python) -> PyResult<Py<Worksheet>> {
         let range = self.sheets.worksheet_range(name.as_str()).unwrap_or_else(||
             Err(calamine::Error::Msg("sheet not found"))).map_err(to_py_err)?;
-        Py::new(py, Worksheet { range, })
+        Py::new(py, Worksheet { range })
     }
 }
 
@@ -56,7 +56,7 @@ impl Worksheet {
     fn _get_size(&self) -> (u32, u32) {
         self.range.end().map_or_else(
             || (0, 0),
-            |v| (v.0 + 1, v.1 + 1)
+            |v| (v.0 + 1, v.1 + 1),
         )
     }
 }
@@ -83,12 +83,12 @@ impl Worksheet {
     /// If the row and column is beyond the valid area of this sheet, it will return None.
     fn get_value(&self, row: u32, col: u32, py: Python) -> PyResult<pyo3::PyObject> {
         match self.range.get_value((row, col)) {
-            None => { Ok(().to_object(py)) }
-            Some(calamine::DataType::Int(i)) => { Ok(i.to_object(py)) }
-            Some(calamine::DataType::Float(i)) => { Ok(i.to_object(py)) }
-            Some(calamine::DataType::String(ref i)) => { Ok(i.clone().to_object(py)) }
-            Some(calamine::DataType::Bool(i)) => { Ok(i.to_object(py)) }
-            Some(calamine::DataType::Empty) => { Ok(().to_object(py)) }
+            None => Ok(py.None()),
+            Some(calamine::DataType::Int(i)) => Ok(i.to_object(py)),
+            Some(calamine::DataType::Float(i)) => Ok(i.to_object(py)),
+            Some(calamine::DataType::String(ref i)) => Ok(i.clone().to_object(py)),
+            Some(calamine::DataType::Bool(i)) => Ok(i.to_object(py)),
+            Some(calamine::DataType::Empty) => Ok(py.None()),
             Some(calamine::DataType::Error(ref e)) => {
                 match e {
                     &calamine::CellErrorType::Div0 => {
@@ -121,8 +121,6 @@ impl Worksheet {
     }
 }
 
-// add bindings to the generated python module
-// N.B: names: "librust2py" must be the name of the `.so` or `.pyd` file
 /// Python library to read the Excel files.
 ///
 /// Including .xlsx, .xlsb, .xls and .ods files.
@@ -133,9 +131,8 @@ impl Worksheet {
 /// [PyO3]: https://github.com/pyo3/pyo3
 #[pymodule]
 fn pyxlsx_rs(_py: Python, m: &PyModule) -> PyResult<()> {
-  m.add_class::<Workbook>()?;
-  m.add_class::<Worksheet>()?;
+    m.add_class::<Workbook>()?;
+    m.add_class::<Worksheet>()?;
 
-  Ok(())
+    Ok(())
 }
-
